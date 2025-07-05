@@ -1,0 +1,75 @@
+name: Build & Deploy confirm-payments to EC2
+
+on:
+  push:
+    branches:
+      - qa
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build, Push to DockerHub and Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set deployment variables
+        id: set-vars
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/qa" ]]; then
+            echo "env=QA" >> $GITHUB_OUTPUT
+            echo "tag=qa-latest" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+            echo "env=PROD" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t kalemat/25-confirm-payments:${{ steps.set-vars.outputs.tag }} .
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push kalemat/25-confirm-payments:${{ steps.set-vars.outputs.tag }}
+
+      - name: Connect and deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets[format('EC2_HOST_{0}', steps.set-vars.outputs.env)] }}
+          username: ${{ secrets[format('EC2_USER_{0}', steps.set-vars.outputs.env)] }}
+          key: ${{ secrets[format('EC2_KEY_{0}', steps.set-vars.outputs.env)] }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
+          script: |
+            docker stop 25-confirm-payments || true
+            docker rm 25-confirm-payments || true
+
+            docker pull kalemat/25-confirm-payments:${{ steps.set-vars.outputs.tag }}
+
+            echo "PORT=3065" > .env
+            echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
+            echo "DB_NAME=payments_db" >> .env
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+            echo "UPDATE_ORDER_STATUS_URL=${{ secrets.UPDATE_ORDER_STATUS_URL }}" >> .env
+            echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> .env
+            echo "DECREASE_STOCK_URL=${{ secrets.DECREASE_STOCK_URL }}" >> .env
+            echo "RESTORE_STOCK_URL=${{ secrets.RESTORE_STOCK_URL }}" >> .env
+            echo "CHECK_STOCK_URL=${{ secrets.CHECK_STOCK_URL }}" >> .env
+
+            docker run -d \
+              --name 25-confirm-payments \
+              --restart always \
+              --env-file .env \
+              -p 3065:3065 \
+              kalemat/25-confirm-payments:${{ steps.set-vars.outputs.tag }}

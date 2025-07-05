@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pymongo
+python-dotenv
+python-jose
+requests
+stripe
+python-multipart

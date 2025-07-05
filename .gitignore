@@ -1,0 +1,54 @@
+# Entorno virtual
+venv/
+ENV/
+env/
+.venv/
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Archivos de logs
+*.log
+
+# Archivos de configuración local o secretos
+.env
+*.env
+
+# Archivos creados por tests o cobertura
+htmlcov/
+.coverage
+.tox/
+.nox/
+.cache/
+pytest_cache/
+*.cover
+coverage.xml
+nosetests.xml
+test-results/
+
+# Archivos de Jupyter / IPython
+.ipynb_checkpoints
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+docker-compose*.yml
+
+# Archivos de VSCode u otros editores
+.vscode/
+.idea/
+*.swp
+*.bak
+
+# Archivos generados por Uvicorn / FastAPI
+*.pid
+
+# HTML de pruebas
+payment-test.html
